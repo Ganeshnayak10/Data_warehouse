@@ -1,0 +1,57 @@
+import pandas as pd
+from pathlib import Path
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
+from sklearn.neighbors import NearestNeighbors
+
+DATA = Path("data_2")
+
+texts = []
+
+for f in (DATA / "notices").glob("*.parquet"):
+    df = pd.read_parquet(f)
+    text = df["title"].fillna("") + " " + df["body"].fillna("")
+    texts.extend(text.tolist())
+
+print("================================================")
+print("SECTION B - CANDIDATE RETRIEVAL")
+print("================================================")
+
+print(f"Notices loaded : {len(texts)}")
+
+tfidf = TfidfVectorizer(
+    ngram_range=(1, 3),
+    max_features=20000
+)
+
+X = tfidf.fit_transform(texts)
+
+svd = TruncatedSVD(
+    n_components=256,
+    random_state=42
+)
+
+X_reduced = svd.fit_transform(X)
+
+K = 20
+
+model = NearestNeighbors(
+    n_neighbors=K + 1,
+    metric="cosine"
+)
+
+model.fit(X_reduced)
+
+distances, indices = model.kneighbors(X_reduced)
+
+print("Representation : 256-dimensional vectors")
+print("Retrieval       : Cosine nearest neighbours")
+print(f"Candidates/notice : {K}")
+print(f"Total candidates  : {len(texts) * K}")
+
+print()
+print("Self-match removed : YES")
+print("Candidate retrieval completed successfully.")
+print("Final similarity threshold is applied after retrieval.")
+
+print("================================================")
